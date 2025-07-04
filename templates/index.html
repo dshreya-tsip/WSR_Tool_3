@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NW Team Weekly Status Report</title>
+  <link rel="stylesheet" 
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    body { background: #f8f9fa; }
+    #loginForm {
+      max-width: 400px; margin: 100px auto; background: white;
+      padding: 30px; border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    #wsrTable td input, #wsrTable td textarea, #wsrTable td select {
+      width: 100%; box-sizing: border-box; font-size: 14px;
+      font-family: inherit; border: none;
+      background-color: transparent; resize: none; pointer-events: none;
+    }
+    #wsrTable td textarea { min-height: 60px; overflow: hidden; }
+    #wsrTable td:nth-child(1), #wsrTable th:nth-child(1) {
+      width: 260px; text-align: center; vertical-align: middle;
+    }
+    .custom-header th {
+      background-color: #343a40; color: white; text-align: center; vertical-align: middle;
+    }
+    .custom-save-btn { background-color: #12d536; color: white; border: none; }
+    .custom-save-btn:hover { background-color: #12d536; }
+    .custom-add-btn { background-color: #0066a1; color: white; border: none; }
+    .custom-add-btn:hover { background-color: #0066a1; }
+    #mainApp { padding: 20px; }
+    #logoutBtn { position: absolute; top: 0; right: 0; }
+    td.actions-cell { text-align: center; vertical-align: middle; white-space: nowrap; }
+    td.actions-cell button { margin: 0 5px; min-width: 60px; }
+    tr.editing td input, tr.editing td textarea, tr.editing td select {
+      pointer-events: auto; background-color: white;
+      border: 1px solid #ced4da; border-radius: 4px;
+    }
+    .date-range-display {
+      font-weight: bold;
+      margin-top: 5px;
+      min-height: 22px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Login Form -->
+  <div id="loginForm">
+    <h3 class="text-center mb-4">Login to NW Team WSR</h3>
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" class="form-control" />
+    </div>
+    <button class="btn btn-primary btn-block" onclick="handleLogin()">Login</button>
+  </div>
+
+  <!-- Main Application -->
+  <div id="mainApp" style="display: none; position: relative;">
+    <div class="text-center mb-3" style="position: relative;">
+      <h2 class="mb-0">NW Weekly Status Report</h2>
+      <button id="logoutBtn" class="btn btn-outline-danger" onclick="handleLogout()">Logout</button>
+    </div>
+    <table id="wsrTable" class="table table-bordered">
+      <thead class="custom-header">
+        <tr id="tableHeaderRow">
+          <th>Week Days</th>
+          <th>Etria(Activity)</th>
+          <th>Solutions(Activity)</th>
+          <th>Meeting Summary</th>
+          <!-- Actions header only if admin -->
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button class="btn custom-add-btn" id="addRowBtn" onclick="addRow()">Add Row</button>
+    <button class="btn custom-save-btn" id="saveBtn" onclick="saveTable()">Save</button>
+  </div>
+
+  <!-- Flatpickr JS -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    let currentRole = "";
+    let editingRow = null;
+
+    function handleLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if ((username === "admin" && password === "admin123") ||
+          (username === "user" && password === "user123")) {
+
+        currentRole = username === "admin" ? "admin" : "user";
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("mainApp").style.display = "block";
+
+        const headerRow = document.getElementById("tableHeaderRow");
+        if (currentRole === "user") {
+          document.getElementById("addRowBtn").style.display = "none";
+          document.getElementById("saveBtn").style.display = "none";
+          if (headerRow.children.length === 5) {
+            headerRow.removeChild(headerRow.lastElementChild);
+          }
+        } else {
+          document.getElementById("addRowBtn").style.display = "inline-block";
+          document.getElementById("saveBtn").style.display = "inline-block";
+          if (headerRow.children.length === 4) {
+            const th = document.createElement("th");
+            th.textContent = "Actions";
+            headerRow.appendChild(th);
+          }
+        }
+
+        document.querySelector("#wsrTable tbody").innerHTML = "";
+        // NEW: Load data from backend after login
+        loadDataFromBackend();
+      } else {
+        alert("Invalid username or password.");
+      }
+    }
+
+    async function loadDataFromBackend() {
+      try {
+        const response = await fetch('/data');
+        if (!response.ok) throw new Error('Failed to load data');
+        const data = await response.json();
+
+        const tbody = document.querySelector("#wsrTable tbody");
+        tbody.innerHTML = ""; // clear existing rows
+
+        data.forEach(row => {
+          // row is array like: [Week Days, Etria, Solutions, Meeting Summary]
+          // For your date range column, convert first column string to {start, end}
+          // Assuming Week Days stored as "YYYY-MM-DD to YYYY-MM-DD" or two dates
+          let start = "", end = "";
+          if (row[0]) {
+            const parts = row[0].split(" to ");
+            if(parts.length === 2) {
+              start = parts[0];
+              end = parts[1];
+            }
+          }
+          addRow([{start, end}, row[1], row[2], row[3]]);
+        });
+
+        if (currentRole === "user") {
+          // For user, disable editing completely
+          const rows = document.querySelectorAll("#wsrTable tbody tr");
+          rows.forEach(row => setInputsDisabled(row, true));
+        }
+      } catch (error) {
+        alert("Error loading data: " + error.message);
+      }
+    }
+
+
+    function handleLogout() {
+      currentRole = "";
+      editingRow = null;
+      document.getElementById("mainApp").style.display = "none";
+      document.getElementById("loginForm").style.display = "block";
+      document.querySelector("#wsrTable tbody").innerHTML = "";
+      document.getElementById("addRowBtn").style.display = "inline-block";
+      document.getElementById("saveBtn").style.display = "inline-block";
+      const headerRow = document.getElementById("tableHeaderRow");
+      if (headerRow.children.length === 4) {
+        const th = document.createElement("th");
+        th.textContent = "Actions";
+        headerRow.appendChild(th);
+      }
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+    }
+
+    function autoResize(textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : n; }
+
+    // Format date range always as DD-DD/MM/YYYY
+    function formatDateRange(start, end) {
+      if (!start || !end) return "";
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (isNaN(startDate) || isNaN(endDate)) return "";
+      if (endDate < startDate) return "";
+      return `${pad(startDate.getDate())}-${pad(endDate.getDate())}/${pad(startDate.getMonth() + 1)}/${startDate.getFullYear()}`;
+    }
+
+    function addRow(data = [{start:"", end:""}, "", "", ""]) {
+      const tbody = document.querySelector("#wsrTable tbody");
+      const row = tbody.insertRow();
+      const colsCount = currentRole === "admin" ? 5 : 4;
+
+      for (let index = 0; index < colsCount; index++) {
+        const cell = row.insertCell();
+
+        if (index === 0) {
+          // Single calendar: Date range picker using flatpickr
+          cell.style.textAlign = "center";
+          const rangeInput = document.createElement("input");
+          rangeInput.type = "text";
+          rangeInput.className = "form-control mb-1";
+          rangeInput.style.maxWidth = "220px";
+          rangeInput.style.display = "inline-block";
+          rangeInput.readOnly = false; // so flatpickr can write
+
+          // Hidden fields to store start/end for saving
+          const hiddenStart = document.createElement("input");
+          hiddenStart.type = "hidden";
+          const hiddenEnd = document.createElement("input");
+          hiddenEnd.type = "hidden";
+
+          // Formatted output
+          const rangeDiv = document.createElement("div");
+          rangeDiv.className = "date-range-display";
+
+          // flatpickr instance
+          let defaultDates = [];
+          if(data[0]?.start && data[0]?.end) {
+            defaultDates = [data[0].start, data[0].end];
+            rangeDiv.textContent = formatDateRange(data[0].start, data[0].end);
+            hiddenStart.value = data[0].start;
+            hiddenEnd.value = data[0].end;
+          }
+
+          flatpickr(rangeInput, {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            defaultDate: defaultDates,
+            allowInput: true,
+            onChange: function(selectedDates) {
+              if (selectedDates.length === 2) {
+                const s = selectedDates[0];
+                const e = selectedDates[1];
+                const sStr = s.toISOString().slice(0,10);
+                const eStr = e.toISOString().slice(0,10);
+                hiddenStart.value = sStr;
+                hiddenEnd.value = eStr;
+                rangeDiv.textContent = formatDateRange(sStr, eStr);
+              } else {
+                hiddenStart.value = "";
+                hiddenEnd.value = "";
+                rangeDiv.textContent = "";
+              }
+            },
+            disableMobile: true
+          });
+          // If user, disable the input (read-only)
+          if(currentRole === "user") {
+            rangeInput.disabled = true;
+          }
+          
+          cell.appendChild(rangeInput);
+          cell.appendChild(hiddenStart);
+          cell.appendChild(hiddenEnd);
+          cell.appendChild(rangeDiv);
+        } else if (index === 1 || index === 2 || index === 3) {
+          // Textareas for Etria, Solutions, Meeting Summary
+          const textarea = document.createElement("textarea");
+          textarea.value = data[index] || "";
+          textarea.oninput = function () { autoResize(this); };
+          setTimeout(() => autoResize(textarea), 0);
+          cell.appendChild(textarea);
+        } else if (index === 4 && currentRole === "admin") {
+          // Actions cell with Edit and Delete buttons
+          cell.classList.add("actions-cell");
+
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Edit";
+          editBtn.className = "btn btn-success btn-sm";
+          editBtn.onclick = () => toggleEditRow(row, editBtn);
+
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "Delete";
+          delBtn.className = "btn btn-danger btn-sm";
+          delBtn.onclick = () => {
+            if (editingRow === row) editingRow = null;
+            row.remove();
+          };
+
+          cell.appendChild(editBtn);
+          cell.appendChild(delBtn);
+        }
+      }
+      // Set this new row as the editing row
+      editingRow = row;
+      disableAllInputs();
+    }
+
+    function disableAllInputs() {
+      const rows = document.querySelectorAll("#wsrTable tbody tr");
+      rows.forEach(row => {
+        if (row === editingRow) {
+          row.classList.add("editing");
+          setInputsDisabled(row, false);
+        } else {
+          row.classList.remove("editing");
+          setInputsDisabled(row, true);
+        }
+      });
+    }
+
+    function setInputsDisabled(row, disabled) {
+      const inputs = row.querySelectorAll("input, select, textarea, button");
+      inputs.forEach(input => {
+        if (input.tagName === "INPUT" || input.tagName === "TEXTAREA" || input.tagName === "SELECT") {
+          input.disabled = disabled;
+          if (disabled) {
+            input.style.pointerEvents = "none";
+            input.style.backgroundColor = "transparent";
+            input.style.border = "none";
+          } else {
+            input.style.pointerEvents = "auto";
+            input.style.backgroundColor = "white";
+            input.style.border = "1px solid #ced4da";
+            input.style.borderRadius = "4px";
+          }
+        } else if (input.tagName === "BUTTON") {
+          const isInActionsCell = input.closest('td.actions-cell') !== null;
+          input.disabled = disabled && !isInActionsCell;
+        }
+      });
+    }
+
+    function toggleEditRow(row, editBtn) {
+      if (editingRow && editingRow !== row) {
+        disableAllInputs();
+        editingRow = null;
+      }
+
+      if (editingRow === row) return;
+      else {
+        editingRow = row;
+        disableAllInputs();
+        editBtn.textContent = "Edit";
+      }
+    }
+
+    function saveTable() {
+      if (!confirm("Are you sure you want to save the changes?")) return;
+
+      editingRow = null;
+      disableAllInputs();
+
+      const tbody = document.querySelector("#wsrTable tbody");
+      const rows = tbody.rows;
+      let dataToSave = [];
+      for (let i = 0; i < rows.length; i++) {
+        let rowData = [];
+        const cells = rows[i].cells;
+        // Week Days column (date range)
+        const hiddenStart = cells[0].querySelector('input[type="hidden"]:first-of-type');
+        const hiddenEnd = cells[0].querySelector('input[type="hidden"]:last-of-type');
+        rowData.push({ start: hiddenStart.value, end: hiddenEnd.value });
+        // Textareas
+        for (let j = 1; j <= 3; j++) {
+          const textarea = cells[j].querySelector("textarea");
+          rowData.push(textarea ? textarea.value.trim() : "");
+        }
+        dataToSave.push(rowData);
+      }
+      localStorage.setItem("wsrData", JSON.stringify(dataToSave));
+      alert("Data saved successfully.");
+    }
+
+    // No auto-load at startup
+    window.onload = () => {};
+  </script>
+</body>
+</html>

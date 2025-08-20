@@ -48,11 +48,11 @@ def generate_test_cases(app_code: str) -> str:
 You are a QA engineer. Based on the following web-application code (frontend and backend), generate a list of functional and non-functional test cases in a markdown table with these columns:
  
   - Test Case ID  
-  - Description  
-  - Input  
-  - Expected Output  
+  - Test Condition  
+  - Test Cases  
+  - Expected Results  
   - Test Type (Functional or Non-Functional)  
-  - Results
+  - Results(If its PASS mark in green color and if FAIL mark in Red color)
  
   Formatting requirements:
  
@@ -212,4 +212,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

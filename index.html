@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>NW Team Weekly Status Report</title>
+  <link rel="stylesheet"
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+  <style>
+    body { background: #f8f9fa; }
+    #loginForm {
+      max-width: 400px; margin: 100px auto; background: white;
+      padding: 30px; border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    #wsrTable td textarea {
+      width: 100%; box-sizing: border-box; font-size: 14px;
+      font-family: inherit; border: 1px solid #ced4da; border-radius: 4px;
+      resize: vertical;
+    }
+    #wsrTable td input {
+      width: 100%;
+    }
+    .custom-header th {
+      background-color: #343a40; color: white; text-align: center;
+    }
+    .custom-save-btn { background-color: #12d536; color: white; border: none; }
+    .custom-add-btn { background-color: #0066a1; color: white; border: none; }
+    #mainApp {
+      max-width: 95%; margin: 0 auto; position: relative; padding: 20px;
+    }
+    #mainHeader {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+    }
+    #logoutBtn {
+      position: absolute; top: 20px; right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginForm">
+    <h3 class="text-center mb-4">Login to NW Team WSR</h3>
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" class="form-control" />
+    </div>
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" class="form-control" />
+    </div>
+    <button class="btn btn-primary btn-block" onclick="handleLogin()">Login</button>
+  </div>
+
+  <div id="mainApp" style="display:none;">
+    <div id="mainHeader">
+      <h2>NW Team Weekly Status Report</h2>
+      <button id="logoutBtn" class="btn btn-outline-danger" onclick="handleLogout()">Logout</button>
+    </div>
+
+    <table id="wsrTable" class="table table-bordered">
+      <thead class="custom-header">
+        <tr>
+          <th>Week Range</th>
+          <th>Etria(Activity)</th>
+          <th>Solutions(Activity)</th>
+          <th>Meeting Summary</th>
+          <th id="actionsHeader">Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="adminControls">
+      <button class="btn custom-add-btn" id="addRowBtn" onclick="addRow()">Add Row</button>
+      <button class="btn custom-save-btn" id="saveBtn" onclick="saveTable()">Save</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    let currentRole = "";
+
+    function handleLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if ((username === "admin" && password === "admin123") ||
+          (username === "user" && password === "user123")) {
+        currentRole = username;
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("mainApp").style.display = "block";
+
+        if (currentRole === "user") {
+          document.getElementById("addRowBtn").style.display = "none";
+          document.getElementById("saveBtn").style.display = "none";
+          document.getElementById("actionsHeader").style.display = "none";
+        } else {
+          document.getElementById("addRowBtn").style.display = "inline-block";
+          document.getElementById("saveBtn").style.display = "inline-block";
+          document.getElementById("actionsHeader").style.display = "table-cell";
+        }
+
+        loadTable();
+      } else {
+        alert("Invalid credentials");
+      }
+    }
+
+    function handleLogout() {
+      location.reload();
+    }
+
+    function addRow(data = null) {
+      const tbody = document.querySelector("#wsrTable tbody");
+      const row = tbody.insertRow();
+
+      const weekCell = row.insertCell();
+      const weekInput = document.createElement("input");
+      weekInput.type = "text";
+      flatpickr(weekInput, { mode: "range", dateFormat: "Y-m-d" });
+      weekCell.appendChild(weekInput);
+      if (data) weekInput.value = data[0];
+      if (currentRole === "user") weekInput.disabled = true;
+
+      for (let i = 1; i <= 3; i++) {
+        const cell = row.insertCell();
+        const textarea = document.createElement("textarea");
+        textarea.value = data ? data[i] : "";
+        if (currentRole === "user") textarea.disabled = true;
+        cell.appendChild(textarea);
+      }
+
+      const actionCell = row.insertCell();
+      if (currentRole === "admin") {
+        const editBtn = document.createElement("button");
+        editBtn.innerText = "Edit";
+        editBtn.className = "btn btn-primary btn-sm mr-2";
+        editBtn.onclick = () => toggleEdit(row, editBtn);
+
+        const delBtn = document.createElement("button");
+        delBtn.innerText = "Delete";
+        delBtn.className = "btn btn-danger btn-sm";
+        delBtn.onclick = () => row.remove();
+
+        actionCell.appendChild(editBtn);
+        actionCell.appendChild(delBtn);
+      } else {
+        actionCell.style.display = "none";
+      }
+    }
+
+    function toggleEdit(row, btn) {
+      const inputs = row.querySelectorAll("input, textarea");
+      const editing = btn.innerText === "Save";
+
+      inputs.forEach(el => {
+        el.disabled = editing;
+        el.style.backgroundColor = editing ? "#e9ecef" : "white";
+      });
+
+      btn.innerText = editing ? "Edit" : "Save";
+    }
+
+    function saveTable() {
+      const rows = document.querySelectorAll("#wsrTable tbody tr");
+      const dataToSave = [];
+      rows.forEach(row => {
+        const cells = row.cells;
+        const week = cells[0].querySelector("input")?.value.trim();
+        const etria = cells[1].querySelector("textarea")?.value.trim();
+        const solutions = cells[2].querySelector("textarea")?.value.trim();
+        const meeting = cells[3].querySelector("textarea")?.value.trim();
+        if (week) {
+          dataToSave.push([week, etria, solutions, meeting]);
+        }
+      });
+
+      if (dataToSave.length === 0) {
+        alert("No data to save.");
+        return;
+      }
+
+      fetch("/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableData: dataToSave })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        return response.json();
+      })
+      .then(result => {
+        alert(result.message || "Saved successfully!");
+      })
+      .catch(err => {
+        alert("Save failed: " + err.message);
+      });
+    }
+
+    function loadTable() {
+      fetch("/data")
+        .then(r => r.json())
+        .then(rows => {
+          const tbody = document.querySelector("#wsrTable tbody");
+          tbody.innerHTML = "";
+          rows.forEach(row => addRow(row));
+        });
+    }
+  </script>
+</body>
+</html>

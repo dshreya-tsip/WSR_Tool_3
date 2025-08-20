@@ -3,44 +3,22 @@ import time
 import json
 import threading
 import requests
-from flask import Flask, jsonify, send_from_directory, request
+import subprocess
+import signal
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 
 # --- Anthropic Claude API config ---
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
-CLAUDE_API_URL = "https://api.anthropic.com/v1/complete"  # Replace with actual Claude API URL if different
+CLAUDE_API_URL = "https://api.anthropic.com/v1/complete"  # Replace if different
 
 if not CLAUDE_API_KEY:
     raise Exception("Set your CLAUDE_API_KEY environment variable!")
 
-# --- Flask backend + frontend server ---
-app = Flask(__name__)
-
+# --- Paths ---
 DATA_FILE = "wsr_data.json"
-
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/data', methods=['GET'])
-def get_data():
-    try:
-        with open(DATA_FILE, 'r') as f:
-            return jsonify(json.load(f))
-    except FileNotFoundError:
-        return jsonify([])
-
-@app.route('/save', methods=['POST'])
-def save_data():
-    data = request.json.get('tableData', [])
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f)
-    return jsonify({"message": "Data saved successfully."})
-
-def run_server():
-    app.run(port=5000)
 
 # --- Call Claude API to generate test cases ---
 def generate_test_cases(app_code: str) -> str:
@@ -98,8 +76,10 @@ def parse_test_cases_table(md_table: str):
 def run_tests(test_cases):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
+
     driver = webdriver.Chrome(options=chrome_options)
 
     results = []
@@ -116,9 +96,8 @@ def run_tests(test_cases):
                 driver.get("http://localhost:5000")
                 time.sleep(1)  # wait for page load
 
-                # Example: handle login tests (expand as needed)
                 if "login" in desc.lower():
-                    # Assume input format: username,password
+                    # Input format: username,password
                     if ',' in input_data:
                         username, password = map(str.strip, input_data.split(',', 1))
                     else:
@@ -135,13 +114,12 @@ def run_tests(test_cases):
                     if expected.lower() in page_source:
                         passed = True
 
-                # Add more functional test logic here for other test cases...
                 else:
-                    # For unknown functional tests, default PASS (or implement real logic)
+                    # Implement other functional test logic if needed
                     passed = True
 
             else:
-                # Non-functional test stub (implement as needed)
+                # Non-functional test stub: mark as passed
                 passed = True
 
         except Exception as e:
@@ -156,40 +134,54 @@ def run_tests(test_cases):
 
 # --- Main orchestration ---
 def main():
-    # Read frontend + backend code for prompt
-    with open("index.html", "r", encoding="utf-8") as f:
-        frontend_code = f.read()
-    with open("app.py", "r", encoding="utf-8") as f:
-        backend_code = f.read()
-    app_code = frontend_code + "\n\n" + backend_code
+    # Start Flask app subprocess
+    flask_process = subprocess.Popen(
+        ["python", "app.py"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
-    # Start server in background thread
-    threading.Thread(target=run_server, daemon=True).start()
-    print("Starting Flask server on http://localhost:5000 ...")
-    time.sleep(5)  # wait for server startup
+    print("Waiting for Flask app to start...")
+    time.sleep(5)  # Give Flask time to start
 
-    # Generate test cases
-    test_cases_md = generate_test_cases(app_code)
-    print("Generated test cases markdown (truncated):\n", test_cases_md[:1000], "...")
+    try:
+        # Read frontend + backend code for prompt
+        with open("index.html", "r", encoding="utf-8") as f:
+            frontend_code = f.read()
+        with open("app.py", "r", encoding="utf-8") as f:
+            backend_code = f.read()
+        app_code = frontend_code + "\n\n" + backend_code
 
-    # Parse test cases
-    test_cases = parse_test_cases_table(test_cases_md)
-    if not test_cases:
-        print("No test cases parsed, exiting.")
-        return
+        # Generate test cases markdown from Claude API
+        test_cases_md = generate_test_cases(app_code)
+        print("Generated test cases markdown (truncated):\n", test_cases_md[:1000], "...")
 
-    print(f"Parsed {len(test_cases)} test cases.")
+        # Parse test cases
+        test_cases = parse_test_cases_table(test_cases_md)
+        if not test_cases:
+            print("No test cases parsed, exiting.")
+            return
 
-    # Run tests
-    updated_cases = run_tests(test_cases)
+        print(f"Parsed {len(test_cases)} test cases.")
 
-    # Save results
-    with open("test_case_results.json", "w", encoding="utf-8") as f:
-        json.dump(updated_cases, f, indent=2)
+        # Run tests
+        updated_cases = run_tests(test_cases)
 
-    print("\nTest results saved to test_case_results.json")
-    for case in updated_cases:
-        print(f"{case['Test Case ID']}: {case['Results']}")
+        # Save results
+        with open("test_case_results.json", "w", encoding="utf-8") as f:
+            json.dump(updated_cases, f, indent=2)
+
+        print("\nTest results saved to test_case_results.json")
+        for case in updated_cases:
+            print(f"{case['Test Case ID']}: {case['Results']}")
+
+    finally:
+        # Terminate Flask app subprocess
+        flask_process.send_signal(signal.SIGINT)
+        try:
+            flask_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            flask_process.kill()
 
 if __name__ == "__main__":
     main()

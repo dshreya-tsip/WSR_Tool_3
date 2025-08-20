@@ -55,11 +55,10 @@ You are a QA engineer. Based on the following web-application code (frontend and
 - Test Cases  
 - Expected Output  
 - Test Type (Functional or Non-Functional)  
-- Results123
 
-In the **Results123** column:
-   - Display ✅ **Pass**
-   - Display ❌ **Fail**
+In the **Resultss** column:
+   - Display ✅ || **Pass** ||
+   - Display ❌ || **Fail** ||
 
 
 
@@ -217,6 +216,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

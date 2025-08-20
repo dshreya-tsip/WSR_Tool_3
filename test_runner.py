@@ -38,7 +38,7 @@ Web application code:
     }
 
     payload = {
-        "model": "claude-2.1",  # Or claude-3-opus if available
+        "model": "claude-3-7-sonnet-20250219",  # Or claude-3-opus if available
         "max_tokens": 1500,
         "temperature": 0,
         "messages": [
@@ -190,4 +190,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

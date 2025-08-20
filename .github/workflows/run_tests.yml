@@ -1,50 +1,52 @@
-name: Run WSR Tool Tests
+name: Run Tests and Generate Excel Report
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  test:
+  run-tests:
     runs-on: ubuntu-latest
 
     env:
       CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.9
+          python-version: '3.9'
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flask selenium requests jq
+          pip install flask selenium requests openpyxl
 
-      - name: Install ChromeDriver (matching Chrome)
+      - name: Install Chrome and ChromeDriver
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip xvfb curl jq
-          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-          DRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform == \"linux64\") | .url")
-          wget -q $DRIVER_URL -O chromedriver.zip
-          unzip chromedriver.zip
+          sudo apt-get install -y wget unzip xvfb libxi6 libgconf-2-4
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -f install -y
+          CHROME_VERSION=$(google-chrome --version | grep -oP '[0-9.]+' | head -1 | cut -d '.' -f 1)
+          CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | jq -r ".channels.Stable.version")
+          wget https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip
+          unzip chromedriver-linux64.zip
           sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
           sudo chmod +x /usr/local/bin/chromedriver
-          chromedriver --version
 
       - name: Run test_runner.py
         run: python test_runner.py
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test_case_results
-          path: test_case_results.json
+      - name: Commit test_case_results.xlsx
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add test_case_results.xlsx
+          git commit -m "Add generated test_case_results.xlsx" || echo "No changes to commit"
+          git push

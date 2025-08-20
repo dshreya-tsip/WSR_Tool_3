@@ -54,11 +54,6 @@ You are a QA engineer. Based on the following web-application code (frontend and
 <span style="color: green;">Pass</span>
 <span style="color: red;">Fail</span>
 
-  Formatting requirements:
-  1. Use markdown table syntax with visible borders around all cells (use pipes `|` and dashes `-` properly).
-  2. Make each row tall enough for readability (add spacing or blank lines if needed).
-  3. In the **Results** column, display **"Pass"** in green text and **"Fail"** in red text using markdown-compatible inline HTML span tags, e.g., `<span style="color: green;">Pass</span>`.
-  4. Ensure the table is well-structured, easy to read, and visually clear.
  
 Generate the table accordingly.
 
@@ -211,6 +206,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

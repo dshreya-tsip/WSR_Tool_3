@@ -64,7 +64,8 @@ In the **Resultss** column:
 
 Use the following application code to generate the test cases:
 
-
+```python
+{app_code}
 
 
 Web application code:
@@ -216,6 +217,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

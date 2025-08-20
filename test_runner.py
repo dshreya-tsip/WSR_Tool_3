@@ -45,15 +45,31 @@ def run_server():
     app.run(port=5000)
 
 # --- Call Claude API to generate test cases ---
+
 def generate_test_cases(app_code: str) -> str:
     prompt = f"""
-You are a QA engineer. Based on the following web-application code (frontend and backend), generate a list of functional and non-functional test cases in a markdown table with these columns:
+You are a QA engineer. Based on the following web-application code (frontend and backend), generate a list of **functional** and **non-functional** test cases in a **markdown table** with the following columns:
 
- Columns: Test Case ID, Test Condition, Test Cases, Expected Output, Test Type, Results
+- Test Case ID  
+- Test Condition  
+- Test Cases  
+- Expected Output  
+- Test Type (Functional or Non-Functional)  
+- Results
 
-Generate the table accordingly.
+### Formatting requirements:
 
-Mark Pass results in Green color
+1. Use **markdown table syntax** with proper borders (pipes `|` and dashes `-`) for clear structure.
+2. Ensure each row is readable and neatly aligned.
+3. In the **Results** column:
+   - Display **"Pass"** in green using: `<span style="color: green;">Pass</span>`
+   - Display **"Fail"** in red using: `<span style="color: red;">Fail</span>`
+4. Ensure the entire table is clean, structured, and easy to understand.
+
+Use the following application code to generate the test cases:
+
+```python
+{app_code}
 
 Web application code:
 {app_code}
@@ -204,6 +220,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

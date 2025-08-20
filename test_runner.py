@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from openpyxl import Workbook
 
+
 # --- Anthropic Claude API config ---
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
@@ -212,5 +213,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

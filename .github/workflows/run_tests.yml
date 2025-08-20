@@ -1,5 +1,4 @@
 name: Run Tests and Generate Excel Report
-
 on:
   push:
     branches:

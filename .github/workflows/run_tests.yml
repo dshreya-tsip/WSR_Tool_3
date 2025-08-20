@@ -30,10 +30,10 @@ jobs:
       - name: Install Google Chrome
         uses: browser-actions/setup-chrome@v1
 
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v1
+      - name: Set up Chromedriver
+        uses: browser-actions/setup-chromedriver@v1
         with:
-          chrome-version: latest
+          chromedriver-version: 'latest'
 
       - name: Run test_runner.py
         run: python test_runner.py

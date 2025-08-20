@@ -56,7 +56,7 @@ You are a QA engineer. Based on the following web-application code (frontend and
 - Expected Output  
 - Test Type (Functional or Non-Functional)  
 - Results123
-
+- Display **"✅ Pass"** and **"❌ Fail"** in the Results column
 ### Formatting requirements:
 
 1. Use **markdown table syntax** with proper borders (pipes `|` and dashes `-`) for clear structure.
@@ -220,6 +220,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

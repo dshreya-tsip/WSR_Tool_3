@@ -51,11 +51,9 @@ You are a QA engineer. Based on the following web-application code (frontend and
 
  Columns: Test Case ID, Test Condition, Test Cases, Expected Output, Test Type, Results
 
-<span style="color: green;">Pass</span>
-<span style="color: red;">Fail</span>
-
- 
 Generate the table accordingly.
+
+Mark Pass results in Green color
 
 Web application code:
 {app_code}
@@ -206,6 +204,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

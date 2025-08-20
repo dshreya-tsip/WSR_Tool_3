@@ -44,7 +44,6 @@ jobs:
           sudo chmod +x /usr/local/bin/chromedriver
           chromedriver --version
 
-
       - name: Run test_runner.py
         run: python test_runner.py
 

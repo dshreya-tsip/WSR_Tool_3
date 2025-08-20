@@ -23,29 +23,34 @@ DATA_FILE = "wsr_data.json"
 # --- Call Claude API to generate test cases ---
 def generate_test_cases(app_code: str) -> str:
     prompt = f"""
-You are a QA engineer. Based on the following web-application code both frontend and backend, generate a list of functional and non-functional test cases in a table format.
+You are a QA engineer. Based on the following web-application code (both frontend and backend), generate a list of functional and non-functional test cases in a table format.
 
 Columns: Test Case ID, Description, Input, Expected Output, Test Type, Results
 
 Web application code:
 {app_code}
 """
+
     headers = {
         "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",  # Required for Claude v1.3+
         "Content-Type": "application/json"
     }
+
     payload = {
-        "model": "claude-v1",
-        "prompt": prompt,
-        "max_tokens_to_sample": 1500,
-        "stop_sequences": ["\n\n"]
+        "model": "claude-2.1",  # Or claude-3-opus if available
+        "max_tokens": 1500,
+        "temperature": 0,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
     }
 
     print("Calling Claude API to generate test cases...")
-    resp = requests.post(CLAUDE_API_URL, headers=headers, json=payload)
+    resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
     resp.raise_for_status()
     data = resp.json()
-    return data.get("completion", "")
+    return data['content'][0]['text']  # Extract generated text
 
 # --- Parse markdown table into list of dicts ---
 def parse_test_cases_table(md_table: str):
@@ -185,3 +190,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

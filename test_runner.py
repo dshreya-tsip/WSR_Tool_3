@@ -3,55 +3,77 @@ import time
 import json
 import threading
 import requests
-import subprocess
-import signal
-
-from openpyxl import Workbook
+from flask import Flask, jsonify, send_from_directory, request
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from openpyxl import Workbook
 
 # --- Anthropic Claude API config ---
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
-CLAUDE_API_URL = "https://api.anthropic.com/v1/complete"  # Replace if different
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 
 if not CLAUDE_API_KEY:
     raise Exception("Set your CLAUDE_API_KEY environment variable!")
 
-# --- Paths ---
+# --- Flask backend + frontend server ---
+app = Flask(__name__)
 DATA_FILE = "wsr_data.json"
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/data', methods=['GET'])
+def get_data():
+    try:
+        with open(DATA_FILE, 'r') as f:
+            return jsonify(json.load(f))
+    except FileNotFoundError:
+        return jsonify([])
+
+@app.route('/save', methods=['POST'])
+def save_data():
+    data = request.json.get('tableData', [])
+    with open(DATA_FILE, 'w') as f:
+        json.dump(data, f)
+    return jsonify({"message": "Data saved successfully."})
+
+def run_server():
+    app.run(port=5000)
 
 # --- Call Claude API to generate test cases ---
 def generate_test_cases(app_code: str) -> str:
     prompt = f"""
-You are a QA engineer. Based on the following web-application code (both frontend and backend), generate a list of functional and non-functional test cases in a table format.
+You are a QA engineer. Based on the following web-application code (both frontend and backend), generate a list of functional and non-functional test cases in markdown table format.
 
 Columns: Test Case ID, Description, Input, Expected Output, Test Type, Results
 
 Web application code:
 {app_code}
 """
-
     headers = {
         "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",  # Required for Claude v1.3+
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json"
     }
-
     payload = {
-        "model": "claude-3-7-sonnet-20250219",  # Or claude-3-opus if available
+        "model": "claude-3-7-sonnet-20250219",
         "max_tokens": 1500,
-        "temperature": 0,
+        "temperature": 0.2,
         "messages": [
-            {"role": "user", "content": prompt}
+            {
+                "role": "user",
+                "content": prompt
+            }
         ]
     }
 
     print("Calling Claude API to generate test cases...")
-    resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
+    resp = requests.post(CLAUDE_API_URL, headers=headers, json=payload)
     resp.raise_for_status()
     data = resp.json()
-    return data['content'][0]['text']  # Extract generated text
+    return data.get("content", [])[0].get("text", "")
 
 # --- Parse markdown table into list of dicts ---
 def parse_test_cases_table(md_table: str):
@@ -82,10 +104,8 @@ def parse_test_cases_table(md_table: str):
 def run_tests(test_cases):
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
-
     driver = webdriver.Chrome(options=chrome_options)
 
     results = []
@@ -100,10 +120,9 @@ def run_tests(test_cases):
         try:
             if test_type == "functional":
                 driver.get("http://localhost:5000")
-                time.sleep(1)  # wait for page load
+                time.sleep(1)
 
                 if "login" in desc.lower():
-                    # Input format: username,password
                     if ',' in input_data:
                         username, password = map(str.strip, input_data.split(',', 1))
                     else:
@@ -119,13 +138,11 @@ def run_tests(test_cases):
                     page_source = driver.page_source.lower()
                     if expected.lower() in page_source:
                         passed = True
-
                 else:
-                    # Implement other functional test logic if needed
+                    # Default functional test (for now)
                     passed = True
-
             else:
-                # Non-functional test stub: mark as passed
+                # Non-functional test logic can be expanded
                 passed = True
 
         except Exception as e:
@@ -140,57 +157,44 @@ def run_tests(test_cases):
 
 # --- Main orchestration ---
 def main():
-    # Start Flask app subprocess
-    flask_process = subprocess.Popen(
-        ["python", "app.py"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
     print("Waiting for Flask app to start...")
-    time.sleep(5)  # Give Flask time to start
+    with open("index.html", "r", encoding="utf-8") as f:
+        frontend_code = f.read()
+    with open("app.py", "r", encoding="utf-8") as f:
+        backend_code = f.read()
+    app_code = frontend_code + "\n\n" + backend_code
 
-    try:
-        # Read frontend + backend code for prompt
-        with open("index.html", "r", encoding="utf-8") as f:
-            frontend_code = f.read()
-        with open("app.py", "r", encoding="utf-8") as f:
-            backend_code = f.read()
-        app_code = frontend_code + "\n\n" + backend_code
+    threading.Thread(target=run_server, daemon=True).start()
+    time.sleep(5)
 
-        # Generate test cases markdown from Claude API
-        test_cases_md = generate_test_cases(app_code)
-        print("Generated test cases markdown (truncated):\n", test_cases_md[:1000], "...")
+    test_cases_md = generate_test_cases(app_code)
+    print("Generated test cases (truncated):\n", test_cases_md[:1000], "...")
 
-        # Parse test cases
-        test_cases = parse_test_cases_table(test_cases_md)
-        if not test_cases:
-            print("No test cases parsed, exiting.")
-            return
+    test_cases = parse_test_cases_table(test_cases_md)
+    if not test_cases:
+        print("No test cases parsed, exiting.")
+        return
 
-        print(f"Parsed {len(test_cases)} test cases.")
+    print(f"Parsed {len(test_cases)} test cases.")
 
-        # Run tests
-        updated_cases = run_tests(test_cases)
+    updated_cases = run_tests(test_cases)
 
-        # Save results
-        with open("test_case_results.json", "w", encoding="utf-8") as f:
-            json.dump(updated_cases, f, indent=2)
+    # ✅ Save results to Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Test Results"
 
-        print("\nTest results saved to test_case_results.json")
+    headers = list(updated_cases[0].keys()) if updated_cases else []
+    if headers:
+        ws.append(headers)
         for case in updated_cases:
-            print(f"{case['Test Case ID']}: {case['Results']}")
+            ws.append([case.get(h, "") for h in headers])
 
-    finally:
-        # Terminate Flask app subprocess
-        flask_process.send_signal(signal.SIGINT)
-        try:
-            flask_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            flask_process.kill()
+    wb.save("test_case_results.xlsx")
+    print("\n✅ Test results saved to test_case_results.xlsx")
+
+    for case in updated_cases:
+        print(f"{case['Test Case ID']}: {case['Results']}")
 
 if __name__ == "__main__":
     main()
-
-
-

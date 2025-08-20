@@ -56,15 +56,12 @@ You are a QA engineer. Based on the following web-application code (frontend and
 - Expected Output  
 - Test Type (Functional or Non-Functional)  
 - Results123
-- Display **"✅ Pass"** and **"❌ Fail"** in the Results column
-### Formatting requirements:
 
-1. Use **markdown table syntax** with proper borders (pipes `|` and dashes `-`) for clear structure.
-2. Ensure each row is readable and neatly aligned.
-3. In the **Results** column:
-   - Display **"Pass"** in green using: `<span style="color: green;">Pass</span>`
-   - Display **"Fail"** in red using: `<span style="color: red;">Fail</span>`
-4. Ensure the entire table is clean, structured, and easy to understand.
+In the **Results123** column:
+   - Display ✅ **Pass**
+   - Display ❌ **Fail**
+
+
 
 Use the following application code to generate the test cases:
 
@@ -220,6 +217,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

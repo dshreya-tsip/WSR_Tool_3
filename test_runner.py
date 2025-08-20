@@ -55,7 +55,7 @@ You are a QA engineer. Based on the following web-application code (frontend and
 - Test Cases  
 - Expected Output  
 - Test Type (Functional or Non-Functional)  
-- Results
+- Results123
 
 ### Formatting requirements:
 
@@ -68,8 +68,8 @@ You are a QA engineer. Based on the following web-application code (frontend and
 
 Use the following application code to generate the test cases:
 
-```python
-{app_code}
+
+
 
 Web application code:
 {app_code}
@@ -220,6 +220,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

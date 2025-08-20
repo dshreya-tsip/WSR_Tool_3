@@ -55,13 +55,12 @@ You are a QA engineer. Based on the following web-application code (frontend and
 - Test Cases  
 - Expected Output  
 - Test Type (Functional or Non-Functional)  
--Results
 
 Use the following application code to generate the test cases:
 
 In the **Results** column:
-   - Display ✅ || **Pass** ||
-   - Display ❌ || **Fail** ||
+   - Display ✅ **Pass**
+   - Display ❌ **Fail**
 
 
 ```python
@@ -217,6 +216,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

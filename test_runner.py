@@ -50,6 +50,9 @@ You are a QA engineer. Based on the following web-application code (frontend and
 
  Columns: Test Case ID, Test Condition, Test Cases, Expected Output, Test Type, Results
 
+<span style="color: green;">Pass</span>
+<span style="color: red;">Fail</span>
+
   Formatting requirements:
   1. Use markdown table syntax with visible borders around all cells (use pipes `|` and dashes `-` properly).
   2. Make each row tall enough for readability (add spacing or blank lines if needed).
@@ -207,6 +210,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
